@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ERP系统</title>
+    <link rel="stylesheet" href="index.css" />
+    <script src="jquery-3.5.0.min.js"></script>
+    <script src="jquery.cookie.js"></script>
+  </head>
+  <body>
+    <div class="box">
+      用户名<input type="text" id="username" required /><br />
+      密码<input type="password" id="password" required /><br />
+      <button id="login_btn">登录</button>
+    </div>
+    <script>
+      $("#login_btn").click(function () {
+        var username = $("#username").val().trim();
+        var password = $("#password").val().trim();
+        if (username === "" || password === "") {
+          alert("请输入用户名和密码");
+          return false;
+        }
+
+        var xhr = new XMLHttpRequest();
+        xhr.open(
+          "get",
+          "index.php?username=" + username + "&password=" + password
+        );
+        xhr.setRequestHeader("content-type", "text/html");
+        xhr.send(null);
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState == 4 && xhr.status == 200) {
+            var r = xhr.responseText;
+            if (r != "success") {
+              alert(r);
+              return false;
+            } else {
+              $.cookie("g_username", username);
+              self.location.href = "home.html";
+            }
+          }
+        };
+      });
+    </script>
+  </body>
+</html>

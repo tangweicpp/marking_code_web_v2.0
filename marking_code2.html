@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>打标码维护模块</title>
+    <script src="jquery-3.5.0.min.js"></script>
+    <script src="jquery.cookie.js"></script>
+    <script src="comm_unit.js"></script>
+    <link rel="stylesheet" href="marking_code.css" />
+  </head>
+  <body>
+    <script>
+      $(function () {
+        var username = $.cookie("g_username");
+        if (username === undefined) {
+          self.location.href = "index.html";
+          return false;
+        }
+
+        document.title += ":" + username;
+      });
+
+      $("button").click(function () {
+        console.log("hello world");
+      });
+
+      function query_rule() {
+        var part_id = $("#part_id").val().trim().toUpperCase();
+        var query_type = $("#query_type").val();
+        if (query_type === "this" && part_id === "") {
+          alert("请输入要查询的机种名");
+          return false;
+        }
+
+        var url =
+          "marking_code.php?part_id=" +
+          part_id +
+          "&action=query" +
+          "&query_type=" +
+          query_type;
+        var xhr = new XMLHttpRequest();
+        xhr.open("get", url);
+        xhr.setRequestHeader("content-type", "text/html");
+        xhr.send(null);
+
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState == 4 && xhr.status == 200) {
+            var r = xhr.responseText;
+            var str = "";
+            if (r == "failed") {
+              str = "";
+              alert("查询不到");
+            } else {
+              r = JSON.parse(r);
+              str +=
+                "<tr><th>选择</th><th>机种名</th><th>申请时间</th><th>申请人</th><th>是否创建</th><th>是否验收</th><th>识别码</th><th>描述</th><th>PDS</th></tr>";
+              for (var i = 0; i < r.HT_PN.length; i++) {
+                str += "<tr>";
+                for (var j in r) {
+                  switch (j) {
+                    case "ID":
+                      str +=
+                        '<td><input type="checkbox" name="n_checked[]" class="c_checked" value=' +
+                        r[j][i] +
+                        "></td>";
+                      break;
+                    case "DESCRIBE":
+                      str +=
+                        "<td><textarea rows='5' cols='5' style='width: 400px;color: white;background-color:black;'>" +
+                        r[j][i] +
+                        "</textarea></td>";
+                      break;
+                    case "PDS":
+                      str += "<td><img src='" + r[j][i] + "'></td>";
+                      break;
+                    default:
+                      str += "<td>" + r[j][i] + "</td>";
+                  }
+                }
+                str += "</tr>";
+              }
+            }
+            $("#detail_table").html(str);
+          }
+        };
+      }
+
+      function add_rule() {
+        var part_id = $("#part_id").val().trim().toUpperCase();
+        if (part_id === "") {
+          alert("请输入机种名");
+          return false;
+        }
+
+        var file_pds = $("#pds_file").val();
+        var file_wo = $("#wo_file").val();
+        if (file_pds == "") {
+          alert("请选择对应的PDS截图文件");
+          return false;
+        }
+        if (file_wo == "") {
+          alert("请选择对应的WO文件");
+          return false;
+        }
+
+        var size1 = $("#pds_file")[0].files[0].size;
+        var size2 = $("#wo_file")[0].files[0].size;
+        if (size1 > 104857600 || size2 > 104857600) {
+          alert("上传的文件不能大于100M");
+          return false;
+        }
+        var formData = new FormData();
+        var type = "file";
+        formData.append(type, $("#pds_file")[0].files[0]);
+        $.ajax({
+          type: "post",
+          url: "marking_code.php",
+          data: formData,
+          processData: false,
+          contentType: false,
+          success: function (data) {
+            if (data == "error") {
+              alert("文件提交失败!");
+            } else {
+              $("input[name='userUrl']").val(data);
+              alert("文件上传成功!");
+            }
+          },
+        });
+
+        // var url = "marking_code.php?part_id=" + part_id + "&action=add";
+        // var xhr = new XMLHttpRequest();
+        // xhr.open("get", url);
+        // xhr.setRequestHeader("content-type", "text/html");
+        // xhr.send(null);
+        // xhr.onreadystatechange = function () {
+        //   if (xhr.readyState == 4 && xhr.status == 200) {
+        //     var r = xhr.responseText;
+        //     if (r != "success") {
+        //       alert(r);
+        //     }
+        //   }
+        // };
+      }
+
+      function updata_rule() {
+        var part_id = $("#part_id").val().trim().toUpperCase();
+        if (part_id === "") {
+          alert("请输入机种名");
+          return false;
+        }
+
+        var url = "marking_code.php?part_id=" + part_id + "&action=update";
+        var xhr = new XMLHttpRequest();
+        xhr.open("get", url);
+        xhr.setRequestHeader("content-type", "text/html");
+        xhr.send(null);
+
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState == 4 && xhr.status == 200) {
+            var r = xhr.responseText;
+            if (r != "success") {
+              alert(r);
+            }
+          }
+        };
+      }
+
+      function remove_rule() {
+        var part_id = $("#part_id").val().trim().toUpperCase();
+        if (part_id === "") {
+          alert("请输入机种名");
+          return false;
+        }
+
+        var url = "marking_code.php?part_id=" + part_id + "&action=remove";
+        var xhr = new XMLHttpRequest();
+        xhr.open("get", url);
+        xhr.setRequestHeader("content-type", "text/html");
+        xhr.send(null);
+
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState == 4 && xhr.status == 200) {
+            var r = xhr.responseText;
+            if (r == "failed") {
+              alert(r);
+            }
+          }
+        };
+      }
+
+      function part_id_changed() {
+        $("#query_type").val("this");
+      }
+
+      function set_code_lines() {
+        var lines = +$("#code_lines").val();
+        // console.log(typeof(lines));
+        var str = "";
+        str +=
+          '<tr><th class="detail">行号</th><th class="detail">识别码</th><th class="detail">来源描述</th></tr>';
+        for (var i = 1; i <= lines; i++) {
+          str += "<tr>";
+          str +=
+            "<td>" +
+            i +
+            "</td>" +
+            '<td><input type="text" src="" alt="" /></td><td><textarea name="" id="" cols="90" rows="2"></textarea></td>';
+          str += "</tr>";
+        }
+
+        $(".code_remark").html(str);
+      }
+    </script>
+    <div class="fix_content">
+      <table id="head_table">
+        <tr>
+          <td class="header">机种</td>
+          <td>
+            <input
+              type="text"
+              name=""
+              id="part_id"
+              onclick="part_id_changed()"
+            />
+          </td>
+          <td class="header">需求</td>
+          <td>
+            <select name="" id="query_type"
+              ><option value="this" selected>当前机种</option
+              ><option value="all">所有机种</option
+              ><option value="wait_create">待IT维护</option
+              ><option value="wait_buy_off">待NPI验收</option></select
+            >
+            <button id="query_data">查询</button>
+          </td>
+          <td>
+            <button onclick="add_rule()">新增</button
+            ><button onclick="updata_rule()">修改</button
+            ><button onclick="remove_rule()">删除</button>
+          </td>
+        </tr>
+        <tr>
+          <td class="header">PDS截图文件</td>
+          <td><input type="file" name="" id="pds_file" /></td>
+          <td class="header">WO模板文件</td>
+          <td colspan="2"><input type="file" name="" id="wo_file" /></td>
+        </tr>
+        <tr>
+          <td class="header">打标码行数</td>
+          <td colspan="4">
+            <input
+              type="number"
+              name=""
+              id="code_lines"
+              max="6"
+              min="1"
+            /><button onclick="set_code_lines()">
+              展开
+            </button>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="5">
+            <table class="code_remark">
+              <!-- <tr>
+                <th class="detail">行号</th>
+                <th class="detail">识别码</th>
+                <th class="detail">来源描述</th>
+              </tr>
+              <tr>
+                <td>1</td>
+                <td><input type="text" src="" alt="" /></td>
+                <td><textarea name="" id="" cols="90" rows="2"></textarea></td>
+              </tr> -->
+            </table>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="scroll_content">
+      <table id="detail_table"></table>
+    </div>
+  </body>
+</html>

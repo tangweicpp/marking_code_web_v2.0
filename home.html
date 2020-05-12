@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>功能主页面</title>
+    <script src="jquery-3.5.0.min.js"></script>
+    <script src="jquery.cookie.js"></script>
+  </head>
+  <body>
+    <ul>
+      <li><a href="marking_code.html" target="_blank">机种打标码维护</a></li>
+      <li><a href="#">预留1</a></li>
+      <li><a href="#">预留2</a></li>
+    </ul>
+    <script>
+      $(function () {
+        var username = $.cookie("g_username");
+        if ( username === undefined) {
+          self.location.href = "index.html";
+          return false;
+        }
+
+        document.title += ":" + username;
+      });
+    </script>
+  </body>
+</html>

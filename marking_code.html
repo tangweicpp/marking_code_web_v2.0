@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>打标码维护模块</title>
+    <script src="jquery-3.5.0.min.js"></script>
+    <script src="jquery.cookie.js"></script>
+    <script src="comm_unit.js"></script>
+    <link rel="stylesheet" href="marking_code.css" />
+  </head>
+  <body>
+    <form>
+      <div class="fix_content">
+        <table id="head_table">
+          <tr>
+            <td class="header">机种</td>
+            <td>
+              <input type="text" name="part_id" id="part_id"" />
+            </td>
+            <td class="header">需求</td>
+            <td>
+              <select name="" id="query_type"
+                ><option value="this" selected>当前机种</option
+                ><option value="all">所有机种</option
+                ><option value="wait_create">待IT维护</option
+                ><option value="wait_buy_off">待NPI验收</option></select
+              >
+              <input type="button" value="查询" id="query_rule" />
+            </td>
+            <td>
+              <input type="button" value="新增" id="add_rule" name="add_rule" />
+              <input type="button" value="修改" id="updata_rule" />
+              <input
+                type="button"
+                value="删除"
+                id="remove_rule"
+              />&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              <input type="button" value="IT建立确认" id="created_rule" />
+              <input type="button" value="NPI验收确认" id="buyoff_rule" />
+            </td>
+          </tr>
+          <tr>
+            <td class="header">PDS截图文件</td>
+            <td>
+              <input
+                type="file"
+                name="pds_file"
+                id="pds_file"
+                accept="image/*"
+              />
+            </td>
+            <td class="header">WO模板文件</td>
+
+            <td colspan="2">
+              <input
+                type="file"
+                accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                name="wo_file"
+                id="wo_file"
+              />
+            </td>
+          </tr>
+          <tr>
+            <td class="header">打标码行数</td>
+            <td>
+              <input type="number" name="" id="code_lines" max="6" min="1" />
+            </td>
+            <td class="header">是否卡控打标码</td>
+            <td colspan="2">
+              <input type="radio" name="card" id="card_yes" checked />是
+              <input type="radio" name="card" id="card_no" />否
+            </td>
+          </tr>
+          <tr>
+            <td colspan="5">
+              <table class="code_remark" id="code_remark"></table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </form>
+    <!-- <img src="./uploads/XSH103005/PDS/bg.jpg" alt=""> -->
+
+    <table id="detail_table"></table>
+
+    <script>
+      $(function () {
+        // check login state
+        var username = $.cookie("g_username");
+        if (username === undefined) {
+          self.location.href = "index.html";
+          return false;
+        }
+
+        document.title += ":" + username;
+
+        // part_id changed
+        $("#part_id").change(function () {
+          $("#query_type").val("this");
+        });
+
+        // query rule
+        $("#query_rule").click(function () {
+          var part_id = $("#part_id").val().trim().toUpperCase();
+          var query_type = $("#query_type").val();
+          if (query_type === "this" && part_id === "") {
+            alert("请输入要查询的机种名");
+            return false;
+          }
+
+          $.ajax({
+            type: "get",
+            url: "marking_code.php",
+            data: { part_id: part_id, action: "query", query_type: query_type },
+            dataType: "json",
+
+            success: function (r) {
+              var str = "";
+              var ht_pn = "";
+              if ($.isEmptyObject(r)) {
+                alert("查询不到数据");
+              } else {
+                str +=
+                  "<tr><th>选择</th><th>机种名</th><th>申请时间</th><th>申请人</th><th>是否创建</th><th>是否验收</th><th>识别码</th><th>描述</th><th>PDS</th><th>WO</th></tr>";
+                for (var i = 0; i < r.HT_PN.length; i++) {
+                  str += "<tr>";
+
+                  for (var j in r) {
+                    switch (j) {
+                      case "ID":
+                        str +=
+                          '<td><input type="checkbox" name="n_checked[]" class="c_checked" value=' +
+                          r[j][i] +
+                          "></td>";
+                        break;
+                      case "HT_PN":
+                        str += "<td>" + r[j][i] + "</td>";
+                        ht_pn = r[j][i];
+                        break;
+                      case "DESCRIBE":
+                        str +=
+                          // "<td><textarea rows='5' cols='5' style='width: 400px;color: white;background-color:black;'>" +
+                          "<td><textarea rows='5' cols='5' style='width: 400px;background-color:#cae1ff;'>" +
+                          r[j][i] +
+                          "</textarea></td>";
+                        break;
+                      case "PDS":
+                        str +=
+                          "<td>" +
+                          '<img width="400" height="400" src="' +
+                          r[j][i] +
+                          '"><br>' +
+                          '<a href="' +
+                          r[j][i] +
+                          '">下载</a>' +
+                          "</td>";
+                        break;
+                      case "WO":
+                        str +=
+                          "<td>" +
+                          '<a href="' +
+                          r[j][i] +
+                          '">下载</a>' +
+                          "</td>";
+                        break;
+                      default:
+                        str += "<td>" + r[j][i] + "</td>";
+                    }
+                  }
+                }
+              }
+              console.log(str);
+
+              $("#detail_table").html(str);
+            },
+          });
+        });
+
+        // add rule
+        $("#add_rule").click(function () {
+          var s_code = "";
+          var s_desc = "";
+          var s_tmp_len = 0;
+
+          $("#code_remark tr").each(function (i) {
+            // 遍历 tr
+            $(this)
+              .children("td")
+              .each(function (j) {
+                // 遍历 tr 的各个 td
+                if (j == 1 || j == 2) {
+                  if ($(this).children().val().trim() == "") {
+                    // alert("识别码及其来源描述不可为空");
+                    s_code = "";
+                    s_desc = "";
+                    return false;
+                  }
+
+                  if (j == 1) {
+                    s_tmp_len = $(this).children().val().trim().length;
+                    s_code += $(this).children().val().trim() + "\\\\";
+                  }
+
+                  if (j == 2) {
+                    s_desc +=
+                      "<第" +
+                      i +
+                      "行 长度" +
+                      s_tmp_len +
+                      ">:" +
+                      $(this).children().val().trim() +
+                      "\n";
+                  }
+                }
+              });
+          });
+
+          if (s_desc == "" || s_code == "") {
+            alert("请填写打标码行数,并填入每一行识别码及其来源");
+            return false;
+          }
+
+          s_code = s_code.substr(0, s_code.length - 2);
+
+          var part_id = $("#part_id").val().trim().toUpperCase();
+          if (part_id === "") {
+            alert("请输入机种名");
+            return false;
+          }
+          var file_pds = $("#pds_file").val();
+          var file_wo = $("#wo_file").val();
+          if (file_pds == "") {
+            alert("请选择对应的PDS截图文件");
+            return false;
+          }
+          if (file_wo == "") {
+            alert("请选择对应的WO文件");
+            return false;
+          }
+
+          var size1 = $("#pds_file")[0].files[0].size;
+          var size2 = $("#wo_file")[0].files[0].size;
+          if (size1 > 104857600 || size2 > 104857600) {
+            alert("上传的文件不能大于100M");
+            return false;
+          }
+
+          var r = confirm(
+            "客户机种: " +
+              part_id +
+              "\n" +
+              "识别码:" +
+              s_code +
+              "\n" +
+              "打标码描述:\n" +
+              s_desc +
+              "\n" +
+              "是否确认新增?"
+          );
+
+          if (r == false) {
+            return false;
+          }
+
+          // check
+          $.ajax({
+            type: "get",
+            url: "marking_code.php",
+            data: {
+              part_id: part_id,
+              action: "add",
+              code: s_code,
+              desc: s_desc,
+              username: username,
+            },
+            dataType: "text",
+
+            success: function (info) {
+              if (info != "success") {
+                alert(info);
+                return false;
+              } else {
+                // upload file
+                var fd = new FormData($("form")[0]);
+                var xhr = new XMLHttpRequest();
+                xhr.open("post", "./marking_code_upload.php");
+                xhr.send(fd);
+
+                xhr.onreadystatechange = function () {
+                  if (xhr.readyState == 4 && xhr.status == 200) {
+                    console.log(xhr.responseText);
+                    alert("机种" + part_id + "打标码规则新增成功");
+                    $("#query_rule").click();
+                  }
+                };
+              }
+            },
+            beforeSend: function () {
+              if (s_code == "" || s_desc == "") {
+                return false;
+              }
+            },
+          });
+        });
+
+        // update rule
+        $("#updata_rule").click(function () {
+          var s_code = "";
+          var s_desc = "";
+          var s_tmp_len = 0;
+
+          $("#code_remark tr").each(function (i) {
+            // 遍历 tr
+            $(this)
+              .children("td")
+              .each(function (j) {
+                // 遍历 tr 的各个 td
+                if (j == 1 || j == 2) {
+                  if ($(this).children().val().trim() == "") {
+                    // alert("识别码及其来源描述不可为空");
+                    s_code = "";
+                    s_desc = "";
+                    return false;
+                  }
+
+                  if (j == 1) {
+                    s_tmp_len = $(this).children().val().trim().length;
+                    s_code += $(this).children().val().trim() + "\\\\";
+                  }
+
+                  if (j == 2) {
+                    s_desc +=
+                      "<第" +
+                      i +
+                      "行 长度" +
+                      s_tmp_len +
+                      ">:" +
+                      $(this).children().val().trim() +
+                      "\n";
+                  }
+                }
+              });
+          });
+
+          if (s_desc == "" || s_code == "") {
+            alert("请填写打标码行数,并填入每一行识别码及其来源");
+            return false;
+          }
+
+          s_code = s_code.substr(0, s_code.length - 2);
+
+          var part_id = $("#part_id").val().trim().toUpperCase();
+          if (part_id === "") {
+            alert("请输入机种名");
+            return false;
+          }
+          var file_pds = $("#pds_file").val();
+          var file_wo = $("#wo_file").val();
+          if (file_pds == "") {
+            alert("请选择对应的PDS截图文件");
+            return false;
+          }
+          if (file_wo == "") {
+            alert("请选择对应的WO文件");
+            return false;
+          }
+
+          var size1 = $("#pds_file")[0].files[0].size;
+          var size2 = $("#wo_file")[0].files[0].size;
+          if (size1 > 104857600 || size2 > 104857600) {
+            alert("上传的文件不能大于100M");
+            return false;
+          }
+
+          var r = confirm(
+            "客户机种: " +
+              part_id +
+              "\n" +
+              "识别码:" +
+              s_code +
+              "\n" +
+              "打标码描述:\n" +
+              s_desc +
+              "\n" +
+              "是否确认修改?"
+          );
+
+          if (r == false) {
+            return false;
+          }
+
+          // check
+          $.ajax({
+            type: "get",
+            url: "marking_code.php",
+            data: {
+              part_id: part_id,
+              action: "update",
+              code: s_code,
+              desc: s_desc,
+              username: username,
+            },
+            dataType: "text",
+
+            success: function (info) {
+              if (info != "success") {
+                alert(info);
+                return false;
+              } else {
+                // upload file
+                var fd = new FormData($("form")[0]);
+                var xhr = new XMLHttpRequest();
+                xhr.open("post", "./marking_code_upload.php");
+                xhr.send(fd);
+
+                xhr.onreadystatechange = function () {
+                  if (xhr.readyState == 4 && xhr.status == 200) {
+                    console.log(xhr.responseText);
+                    alert("机种" + part_id + "打标码规则修改成功");
+                    $("#query_rule").click();
+                  }
+                };
+              }
+            },
+            beforeSend: function () {
+              if (s_code == "" || s_desc == "") {
+                return false;
+              }
+            },
+          });
+        });
+
+        // remove rule
+        $("#remove_rule").click(function () {
+          var part_id = $("#part_id").val().trim().toUpperCase();
+          if (part_id == "") {
+            alert("请输入你要删除的机种名称");
+            return false;
+          }
+          if (username != "07885") {
+            alert("你没有权限删除,请联系IT进行删除");
+            return false;
+          }
+
+          var r = confirm("客户机种: " + part_id + "\n" + "是否确认删除?");
+
+          if (r == false) {
+            return false;
+          }
+
+          $.ajax({
+            type: "get",
+            url: "marking_code.php",
+            data: { part_id: part_id, action: "remove", username: username },
+            dataType: "text",
+
+            success: function (r) {
+              if (r != "success") {
+                alert(r);
+                return false;
+              } else {
+                alert("机种" + part_id + "打标规则删除成功");
+                $("#query_rule").click();
+              }
+            },
+          });
+        });
+
+        // created rule
+        $("#created_rule").click(function () {
+          var sel_id_array = [];
+
+          if (username != "07885") {
+            alert("你没有权限点击创建确认");
+            return false;
+          }
+
+          $("#detail_table tr:not(:first)").each(function (i) {
+            // 遍历 tr
+            $(this)
+              .children("td")
+              .each(function (j) {
+                // 遍历 tr 的各个 td
+                if (j == 0) {
+                  var node = $(this).children();
+                  if (node.is(":checked") == true) {
+                    sel_id_array.push(node.val());
+                  }
+                }
+              });
+          });
+
+          // console.log(sel_id_array);
+          if (sel_id_array.length === 0) {
+            alert("请勾选你要确认的机种");
+            return false;
+          }
+
+          var r = confirm("是否确认已经创建?");
+
+          if (r == false) {
+            return false;
+          }
+          $.ajax({
+            type: "get",
+            url: "marking_code.php",
+            data: {
+              part_id: sel_id_array,
+              action: "created",
+              username: username,
+            },
+            dataType: "text",
+
+            success: function (r) {
+              if (r != "success") {
+                alert(r);
+                return false;
+              } else {
+                alert("机种打标规则已确认创建");
+                $("#query_rule").click();
+              }
+            },
+          });
+        });
+
+        // created rule
+        $("#buyoff_rule").click(function () {
+          var part_id = "";
+          var sel_id_array = [];
+
+          $("#detail_table tr:not(:first)").each(function (i) {
+            // 遍历 tr
+            $(this)
+              .children("td")
+              .each(function (j) {
+                // 遍历 tr 的各个 td
+                if (j == 0) {
+                  var node = $(this).children();
+                  if (node.is(":checked") == true) {
+                    sel_id_array.push(node.val());
+                  }
+                }
+              });
+          });
+
+          // console.log(sel_id_array);
+          if (sel_id_array.length === 0) {
+            alert("请勾选你要确认验收的机种");
+            return false;
+          }
+
+          var r = confirm("是否确认已经验收?");
+
+          if (r == false) {
+            return false;
+          }
+          $.ajax({
+            type: "get",
+            url: "marking_code.php",
+            data: {
+              part_id: sel_id_array,
+              action: "buyoff",
+              username: username,
+            },
+            dataType: "text",
+
+            success: function (r) {
+              if (r != "success") {
+                alert(r);
+                return false;
+              } else {
+                alert("机种打标规则已确认验收");
+                $("#query_rule").click();
+              }
+            },
+          });
+        });
+
+        // code desc
+        $("#code_lines").change(function () {
+          var lines = +$("#code_lines").val();
+          // console.log(typeof(lines));
+          var str = "";
+          str +=
+            '<tr><th class="detail">行号</th><th class="detail">识别码</th><th class="detail">来源描述</th></tr>';
+          for (var i = 1; i <= lines; i++) {
+            str += "<tr>";
+            str +=
+              "<td>" +
+              i +
+              "</td>" +
+              '<td><input type="text" src="" alt="" class="s_code"/></td><td><textarea name="" id="" cols="90" rows="2" class="s_desc"></textarea></td>';
+            str += "</tr>";
+          }
+
+          $("#code_remark").html(str);
+        });
+      });
+    </script>
+  </body>
+</html>

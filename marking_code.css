@@ -1,0 +1,26 @@
+table {
+  border-collapse: collapse;
+  border: solid 1px Black;
+}
+
+td {
+  border: solid 1px Black;
+  padding: 5px;
+}
+
+th {
+  border: solid 1px Black;
+  padding: 5px;
+}
+
+button {
+  margin-left: 5px;
+}
+
+.header {
+  background-color: #cae1ff;
+}
+
+.detail {
+  background-color: #cae1ff;
+}
